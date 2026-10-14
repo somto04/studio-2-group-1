@@ -43,16 +43,15 @@ PDMClass PDM(2,3);
 #define BH1745NUC_DEVICE_ADDRESS_38 0x38    //light measurement sensor I2C address
 BH1745NUC bh1745nuc = BH1745NUC();
 
-void printLight(short);
 
 // climate sensor variable
 Bme68x bme;  
 
-short readLightMeasurements();
-String readClimateValues();
+void readLightMeasurements();
+void readClimateValues();
 
 void onPDMdata();
-float getSoundSample();
+void getSoundSample();
 
 void resetDisplay(int);
 
@@ -97,7 +96,6 @@ void setup() {
     else if (bme.checkStatus() == BME68X_WARNING) {
         Serial.println("Sensor Warning: " + bme.statusString());
     }
-
     }
 
     //sets the default configuration for temperature, pressure and humidity
@@ -114,28 +112,53 @@ void setup() {
 }
 
 void loop() {
-  resetDisplay(0);
+    resetDisplay(0);
+    // temp
+    readClimateValues();
 
-  // temp
-  String temp = readClimateValues();
-  display.print("Temperature: ");
-  display.print(temp);
-  display.println(F("'C"));
-
-  // sound
-  float sound = getSoundSample();
-  display.setCursor(0, 10);
-  display.print(F("Sound level: "));
-  display.println(sound);
-  display.display();
-  delay(1000);
-
-  // light
-    short rgb = readLightMeasurements();
-    printLight(rgb);
+    // sound
+    getSoundSample();
+    // light
+    readLightMeasurements();
+    display.display();
 }
 
-void printLight(rgb) {
+void readClimateValues() {
+  bme68xData data;
+  uint8_t nFieldsLeft = 0;
+
+  if (bme.fetchData()) {
+    do {
+      nFieldsLeft = bme.getData(data);
+
+      if (data.status == NEW_GAS_MEAS) {
+        Serial.print(String(data.temperature-4.49) + ", ");
+        if (data.gas_index == 2) delay(250);
+        display.setCursor(0,0);
+        display.print("Temperature: ");
+        display.print(String(data.temperature - 4.49));
+        display.println(F("'C"));
+      }
+    }
+
+    while (nFieldsLeft);
+  }
+}
+
+void readLightMeasurements() {
+    if (!bh1745nuc.read()) {
+        Serial.println("Light sensor failed to read measurement values!");
+        delay(500);
+        return;
+    }
+
+    unsigned short rgbc[4];
+    rgbc[0] = bh1745nuc.red;
+    rgbc[1] = bh1745nuc.green;
+    rgbc[2] = bh1745nuc.blue;
+    rgbc[3] = bh1745nuc.clear;
+
+    //print light values on the serial monitor
     Serial.write("Red = ");
     Serial.print(rgbc[0]);
     Serial.write(" Green = ");
@@ -146,7 +169,8 @@ void printLight(rgb) {
     Serial.println(rgbc[3]);  
 
     //display light values in OLED display
-    display.println(F("Light measurements.. "));
+    display.setCursor(0,20);
+    display.println(F("Light measurements.."));
     display.print(F("Red:   "));
     display.println(String(rgbc[0]));
     display.print(F("Green: "));
@@ -155,63 +179,6 @@ void printLight(rgb) {
     display.println(String(rgbc[2]));
     display.print(F("Clear: "));
     display.println(String(rgbc[3]));
-}
-
-String readClimateValues() {
-  bme68xData data;
-  uint8_t nFieldsLeft = 0;
-
-  delay(150);
-
-  if (bme.fetchData()) {
-    do {
-      nFieldsLeft = bme.getData(data);
-
-      if (data.status == NEW_GAS_MEAS) {
-        //Serial.print(String(data.temperature-4.49) + ", ");
-        String temp = String(data.temperature - 4.49);
-        if (data.gas_index == 2) delay(250);
-        return temp;
-      }
-    }
-
-    while (nFieldsLeft);
-  }
-  return "N/A";
-}
-
- short readLightMeasurements() {
-    if (!bh1745nuc.read()) {
-        Serial.println("Light sensor failed to read measurement values!");
-        delay(500);
-        return;
-    }
-    unsigned short rgbc[4];    //creates a 4 value array
-    rgbc[0] = bh1745nuc.red;
-    rgbc[1] = bh1745nuc.green;
-    rgbc[2] = bh1745nuc.blue;
-    rgbc[3] = bh1745nuc.clear;
-
-    //print light values on the serial monitor
-    // Serial.write("Red = ");
-    // Serial.print(rgbc[0]);
-    // Serial.write(" Green = ");
-    // Serial.print(rgbc[1]);
-    // Serial.write(" Blue = ");
-    // Serial.print(rgbc[2]);
-    // Serial.write(" Clear = ");
-    // Serial.println(rgbc[3]);  
-
-    // //display light values in OLED display
-    // display.println(F("Light measurements.. "));
-    // display.print(F("Red:   "));
-    // display.println(String(rgbc[0]));
-    // display.print(F("Green: "));
-    // display.println(String(rgbc[1]));
-    // display.print(F("Blue:  "));
-    // display.println(String(rgbc[2]));
-    // display.print(F("Clear: "));
-    // display.println(String(rgbc[3]));
 }
 
 //Callback function to process the data from the PDM microphone.
@@ -228,7 +195,7 @@ void onPDMdata() {
 }
 
 //get sound sample
-float getSoundSample() {
+void getSoundSample() {
 
     //wait for audio samples to be read
     Serial.print("test");
@@ -247,8 +214,9 @@ float getSoundSample() {
         }
         float rmsValue = sqrt((float)sumSquare / samplesRead);
         samplesRead = 0;  //clear the read count
-        return rmsValue;
-
+        display.setCursor(0, 10);
+        display.print(F("Sound level: "));
+        display.println(rmsValue);
     }
 }
 
