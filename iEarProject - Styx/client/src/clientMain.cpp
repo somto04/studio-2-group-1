@@ -10,6 +10,8 @@
 #include <WiFiClient.h>         
 #include <WiFi.h>            
 #include "LEAmDNS.h" 
+#include "SparkFun_LSM6DSV16X.h" //inertial sensor library not available in PlatformIO libraries.
+
 
 //define PDM mic parameters
 #define BIT_PER_SAMPLE 16
