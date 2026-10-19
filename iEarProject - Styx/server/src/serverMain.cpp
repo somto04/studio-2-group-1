@@ -10,7 +10,7 @@
 
 //configure parameters for Access Point
 
-const char* ssid_ap = "Team_X";
+const char* ssid_ap = "Team_1";
 const char* password_ap = "123456789";
 
 IPAddress local_ip(192,168,4,169); // arbitrary IP address (user-defined IP address). 

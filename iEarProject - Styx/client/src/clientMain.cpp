@@ -92,6 +92,7 @@ void setup() {
     resetDisplay(0);
     delay(1000);
     display.clearDisplay();
+    connectToServer();
     initialiseSensors();
 }
 
