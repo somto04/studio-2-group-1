@@ -113,6 +113,7 @@ void setup() {
 
 void loop() {
     resetDisplay(0);
+   // delay(200); // This delay is only really here so that temperature switching between no data found and data found isn't visually jarring
     // temp
     readClimateValues();
 
@@ -120,7 +121,10 @@ void loop() {
     getSoundSample();
     // light
     readLightMeasurements();
-    display.display();
+
+    
+    
+    display.display();  
 }
 
 void readClimateValues() {
@@ -142,6 +146,11 @@ void readClimateValues() {
     }
 
     while (nFieldsLeft);
+  }
+  else // If no data is found
+  {
+    display.setCursor(0,0);
+    display.println("Temperature: No data!");
   }
 }
 
