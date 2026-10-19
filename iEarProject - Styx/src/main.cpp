@@ -7,6 +7,7 @@
 #include <Adafruit_GFX.h>       //OLED display support library
 #include <Adafruit_SSD1306.h>   //OLED display library
 #include "bme68xLibrary.h"
+#include <ctime>
 
 
 //define PDM mic parameters
@@ -33,6 +34,10 @@ short sampleBuffer[256]; //[512]
 //Number of audio samples read
 volatile int samplesRead;
 
+// float temps[24];
+// unsigned short lights[24][4];
+// double sounds[24];
+
 //track recording status
 int recordingStatus = 0;
 
@@ -43,7 +48,7 @@ PDMClass PDM(2,3);
 #define BH1745NUC_DEVICE_ADDRESS_38 0x38    //light measurement sensor I2C address
 BH1745NUC bh1745nuc = BH1745NUC();
 
-double prev_temp = 0;
+float prev_temp = 0;
 
 // climate sensor variable
 Bme68x bme;  
@@ -140,6 +145,8 @@ void readClimateValues() {
         display.print("Temperature: ");
         display.print(String(data.temperature - 4.49));
         display.println(F("'C"));
+
+        
       }
     }
 
