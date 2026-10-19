@@ -113,7 +113,7 @@ void setup() {
 
 void loop() {
     resetDisplay(0);
-   // delay(200); // This delay is only really here so that temperature switching between no data found and data found isn't visually jarring
+    delay(200); // This delay is only really here so that temperature switching between no data found and data found isn't visually jarring
     // temp
     readClimateValues();
 
