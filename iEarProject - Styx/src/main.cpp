@@ -43,6 +43,7 @@ PDMClass PDM(2,3);
 #define BH1745NUC_DEVICE_ADDRESS_38 0x38    //light measurement sensor I2C address
 BH1745NUC bh1745nuc = BH1745NUC();
 
+double prev_temp = 0;
 
 // climate sensor variable
 Bme68x bme;  
@@ -113,17 +114,13 @@ void setup() {
 
 void loop() {
     resetDisplay(0);
-    delay(200); // This delay is only really here so that temperature switching between no data found and data found isn't visually jarring
-    // temp
+
     readClimateValues();
 
-    // sound
     getSoundSample();
-    // light
+
     readLightMeasurements();
 
-    
-    
     display.display();  
 }
 
@@ -137,6 +134,7 @@ void readClimateValues() {
 
       if (data.status == NEW_GAS_MEAS) {
         Serial.print(String(data.temperature-4.49) + ", ");
+        prev_temp = data.temperature-4.49;
         if (data.gas_index == 2) delay(250);
         display.setCursor(0,0);
         display.print("Temperature: ");
@@ -149,8 +147,15 @@ void readClimateValues() {
   }
   else // If no data is found
   {
-    display.setCursor(0,0);
-    display.println("Temperature: No data!");
+    if (prev_temp){
+        display.print("Temperature: ");
+        display.print(String(prev_temp));
+        display.println(F("'C"));
+    }
+    else {
+        display.setCursor(0,0);
+        display.println("Temperature: No data!");
+    }
   }
 }
 
