@@ -11,7 +11,8 @@
 #include <WiFi.h>            
 #include "LEAmDNS.h" 
 #include "SparkFun_LSM6DSV16X.h" //inertial sensor library not available in PlatformIO libraries.
-
+#include <ctime>
+#include <string>
 
 //define PDM mic parameters
 #define BIT_PER_SAMPLE 16
@@ -60,8 +61,26 @@ WiFiClient client;
 String sensorData;                     //variable to hold sensor data for posting
 float  temp, sound;
 unsigned short rgbc[4];
+bool objectMoved;
 
 #define SensorNumber 1                 //enables you to identify devices uniquely
+
+//initialize gyroscope values
+float gyroX = 0.0;
+float gyroY = 0.0;
+float gyroZ = 0.0;
+float gOffX = 0.0;
+float gOffY = 0.0;
+float gOffZ = 0.0;
+
+float prevGyroX = 0.0;
+float prevGyroY = 0.0;
+float prevGyroZ = 0.0;
+
+SparkFun_LSM6DSV16X myLSM;  //creates inertial sensor object
+
+// Structs for X,Y,Z data
+sfe_lsm_data_t gyroData;
 
 //declare the functions implemented in program
 void initializeSensor();
@@ -75,6 +94,9 @@ void onPDMdata();
 void getSoundSample();
 void resetDisplay(int);
 void initialiseSensors();
+void calibrateGyro();
+void display3DGyroValues();
+std::string getTimeString();
 
 void setup() {
     Serial.begin(115200);
@@ -107,6 +129,7 @@ void loop() {
     structureSensorData();
     sendHTTPSensorData();
     
+    display3DGyroValues(); 
     display.display();  
 }
 
@@ -115,6 +138,7 @@ void initialiseSensors() {
     bh1745nuc.begin(BH1745NUC_DEVICE_ADDRESS_38);
     bh1745nuc.startMeasurement();
 
+    // sound
     // Configure the data receive callback
     PDM.onReceive(onPDMdata);
     //Initialize PDM with:
@@ -127,6 +151,7 @@ void initialiseSensors() {
     }
     PDM.setGain(1);
 
+    // temperature
     bme.begin(0x76, Wire);
 
     if (bme.checkStatus()) {
@@ -150,6 +175,118 @@ void initialiseSensors() {
     bme.setSeqSleep(BME68X_ODR_250_MS);
     bme.setHeaterProf(tempProf, durProf, 3);
     bme.setOpMode(BME68X_SEQUENTIAL_MODE);
+
+    // gyroscope
+        if (!myLSM.begin()) //starts inertial measurement sensor
+    {
+        Serial.println("Did not begin, check your wiring and/or I2C address!");
+        while (1);
+    }
+
+    // Reset the device to default settings. This if helpful is you're doing multiple
+    // uploads testing different settings.
+    myLSM.deviceReset();
+
+    // Wait for it to finish resetting
+    while (!myLSM.getDeviceReset())
+    {
+        delay(1);
+    }
+
+    // Accelerometer and Gyroscope registers will not be updated
+    // until read.
+    myLSM.enableBlockDataUpdate();
+
+    // Sets the output data rate and precision of the accelerometer
+    myLSM.setAccelDataRate(LSM6DSV16X_ODR_AT_7Hz5);
+    myLSM.setAccelFullScale(LSM6DSV16X_16g);
+
+    // Sets the output data rate and precision of the gyroscope
+    myLSM.setGyroDataRate(LSM6DSV16X_ODR_AT_15Hz);
+    myLSM.setGyroFullScale(LSM6DSV16X_2000dps);
+
+    // Enables filter settling.
+    myLSM.enableFilterSettling();
+
+    // Turns on the accelerometer's filter and apply settings.
+    myLSM.enableAccelLP2Filter();
+    myLSM.setAccelLP2Bandwidth(LSM6DSV16X_XL_STRONG);
+
+    // Turns on the gyroscope's filter and apply settings.
+    myLSM.enableGyroLP1Filter();
+    myLSM.setGyroLP1Bandwidth(LSM6DSV16X_GY_ULTRA_LIGHT);
+    
+    //calibrate gyroscope
+    calibrateGyro(); 
+}
+
+void display3DGyroValues()
+{
+  if (myLSM.checkStatus())
+  {
+    objectMoved = false;
+    myLSM.getGyro(&gyroData);
+    gyroX = gyroData.xData - gOffX;
+    gyroY = gyroData.yData - gOffY;
+    gyroZ = gyroData.zData - gOffZ;
+
+    // if there is a substantial different not just a bump
+    if (abs(gyroX - prevGyroX) > 70 || abs(gyroY - prevGyroY) > 70 || abs(gyroZ - prevGyroZ) > 70) objectMoved = true;
+
+    Serial.print("GyroX: ");
+    Serial.print(gyroX);
+    Serial.println(" deg/s");
+ 
+    Serial.print("GyroY: ");
+    Serial.print(gyroY);
+    Serial.println(" deg/s");
+
+    Serial.print("GyroZ: ");
+    Serial.print(gyroZ);
+    Serial.println(" deg/s");
+
+    Serial.println();
+
+    prevGyroX = gyroX;
+    prevGyroY = gyroY;
+    prevGyroZ = gyroZ;
+  }
+}
+
+void calibrateGyro()
+{
+  float gTempX = 0.0;
+  float gTempY = 0.0;
+  float gTempZ = 0.0;
+  int i =0;
+
+  display.clearDisplay();                 //clears OLED screen
+  display.setTextSize(1);                 //Normal 1:1 pixel scale
+  display.setTextColor(SSD1306_WHITE);    //Draw white text
+  
+  display.setCursor(0,0); 
+  display.println(F("Calibrating gyroscope"));
+  display.setCursor(0,20);
+  display.println(F("Please wait ...."));
+  display.setCursor(0,40); 
+  display.println(F("Keep device STILL"));
+  display.println(F("& on a FLAT surface")); 
+  display.display();
+
+  while(i<200)
+  {
+    if (myLSM.checkStatus())
+    {
+      myLSM.getGyro(&gyroData);
+      gTempX += gyroData.xData;
+      gTempY += gyroData.yData;
+      gTempZ += gyroData.zData;
+      i += 1;
+    }
+  }
+    gOffX = gTempX/200.0;
+    gOffY = gTempY/200.0;
+    gOffZ = gTempZ/200.0;
 }
 
 void readClimateValues() {
@@ -292,6 +429,14 @@ void connectToServer(){
   display.display();
 }
 
+std::string getTimeString() {
+    std::time_t now = std::time(nullptr);
+    std::tm* localTime = std::localtime(&now);
+    char buffer[80];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localTime);
+    return std::string(buffer);
+}
+
 void sendHTTPSensorData() {
   //if disconnected loop until reconnected
   while (!client.connected()) {
@@ -313,9 +458,11 @@ void sendHTTPSensorData() {
 void structureSensorData() {
   Serial.println("Structuring data request");
   sensorData  = "sensor?Sensor="+String(SensorNumber);
-  sensorData += "&temp="+String(temp);
-  sensorData += "&sound="+String(sound);
-  sensorData += "&light="+String(rgbc[0]) + "," + String(rgbc[1]) + "," + String(rgbc[2]) + "," +  String(rgbc[3]);
+  sensorData += "&temp=" + String(temp);
+  sensorData += "&sound=" + String(sound);
+  sensorData += "&light=" + String(rgbc[0]) + "," + String(rgbc[1]) + "," + String(rgbc[2]) + "," +  String(rgbc[3]);
+  sensorData += "&moved=" + String(objectMoved);
+  sensorData += "&time=" + String(getTimeString().c_str()); // Convert std::string to Arduino String
 
   Serial.println("...Information to be posted: "+sensorData);
 }
