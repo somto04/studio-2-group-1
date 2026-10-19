@@ -7,7 +7,9 @@
 #include <Adafruit_GFX.h>       //OLED display support library
 #include <Adafruit_SSD1306.h>   //OLED display library
 #include "bme68xLibrary.h"
-
+#include <WiFiClient.h>         
+#include <WiFi.h>            
+#include "LEAmDNS.h" 
 
 //define PDM mic parameters
 #define BIT_PER_SAMPLE 16
@@ -18,6 +20,7 @@
 #define OLED_RESET    -1 // Reset pin # 
 #define SCREEN_ADDRESS 0x3C //OLED I2C address
 #define NEW_GAS_MEAS (BME68X_GASM_VALID_MSK | BME68X_HEAT_STAB_MSK | BME68X_NEW_DATA_MSK)
+#define pin28 28
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
@@ -48,17 +51,36 @@ double prev_temp = 0;
 // climate sensor variable
 Bme68x bme;  
 
+const char* ssid      = "Team_1";
+const char* password  = "123456789";
+const char* host      = "192.168.4.169";
+WiFiClient client;                         
+String sensorData;                     //variable to hold sensor data for posting
+float  temp, sound;
+unsigned short rgbc[4];
+
+#define SensorNumber 1                 //enables you to identify devices uniquely
+
+//declare the functions implemented in program
+void initializeSensor();
+void connectToServer();
+void readSensorMeasurement();     
+void structureSensorData();
+void sendHTTPSensorData();
 void readLightMeasurements();
 void readClimateValues();
-
 void onPDMdata();
 void getSoundSample();
-
 void resetDisplay(int);
+void initialiseSensors();
 
 void setup() {
     Serial.begin(115200);
     Wire.begin();
+    WiFi.mode(WIFI_STA);                     //set WiFi as station (i.e., client)
+    WiFi.begin(ssid,password);
+    Serial.println();
+    delay(10);
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
         Serial.println(F("SSD1306 allocation failed; check wiring and I2C address."));
@@ -70,8 +92,23 @@ void setup() {
     resetDisplay(0);
     delay(1000);
     display.clearDisplay();
+    initialiseSensors();
+}
 
-    //start light level measurements
+void loop() {
+    resetDisplay(0);
+    readClimateValues();
+    getSoundSample();
+    readLightMeasurements();
+
+    structureSensorData();
+    sendHTTPSensorData();
+    
+    display.display();  
+}
+
+void initialiseSensors() {
+  //start light level measurements
     bh1745nuc.begin(BH1745NUC_DEVICE_ADDRESS_38);
     bh1745nuc.startMeasurement();
 
@@ -112,18 +149,6 @@ void setup() {
     bme.setOpMode(BME68X_SEQUENTIAL_MODE);
 }
 
-void loop() {
-    resetDisplay(0);
-
-    readClimateValues();
-
-    getSoundSample();
-
-    readLightMeasurements();
-
-    display.display();  
-}
-
 void readClimateValues() {
   bme68xData data;
   uint8_t nFieldsLeft = 0;
@@ -133,12 +158,13 @@ void readClimateValues() {
       nFieldsLeft = bme.getData(data);
 
       if (data.status == NEW_GAS_MEAS) {
-        Serial.print(String(data.temperature-4.49) + ", ");
+        temp = data.temperature - 4.49;
+        Serial.print(String(temp) + ", ");
         prev_temp = data.temperature-4.49;
         if (data.gas_index == 2) delay(250);
         display.setCursor(0,0);
         display.print("Temperature: ");
-        display.print(String(data.temperature - 4.49));
+        display.print(String(temp));
         display.println(F("'C"));
       }
     }
@@ -166,7 +192,6 @@ void readLightMeasurements() {
         return;
     }
 
-    unsigned short rgbc[4];
     rgbc[0] = bh1745nuc.red;
     rgbc[1] = bh1745nuc.green;
     rgbc[2] = bh1745nuc.blue;
@@ -210,7 +235,6 @@ void onPDMdata() {
 
 //get sound sample
 void getSoundSample() {
-
     //wait for audio samples to be read
     Serial.print("test");
     if (samplesRead) {
@@ -227,11 +251,70 @@ void getSoundSample() {
             sumSquare += long(sample) * sample;
         }
         float rmsValue = sqrt((float)sumSquare / samplesRead);
+        sound = rmsValue;
         samplesRead = 0;  //clear the read count
         display.setCursor(0, 10);
         display.print(F("Sound level: "));
         display.println(rmsValue);
     }
+}
+
+void connectToServer(){
+  
+  while(WiFi.status() != WL_CONNECTED) {
+    Serial.println("Attempting to connect to Server");
+    display.clearDisplay();                 //clears OLED screen 
+    display.setCursor(0,20);
+    display.println("Attempting to connect");
+     display.setCursor(0,30);
+    display.println("to server ...."); 
+    display.display();
+    delay(500);
+  }
+  Serial.println();
+  Serial.print("Connected to server IP Address (AP): "); 
+  Serial.println(WiFi.localIP());
+
+  display.clearDisplay();                 //clears OLED screen 
+  display.setCursor(0,5);
+  display.print("Sensor No: ");
+  display.println(String(SensorNumber));
+  display.setCursor(0,15);
+
+  display.setCursor(0,35);
+  display.println("Connected to server");
+  display.setCursor(0,45);
+  display.print("@IP: ");
+  display.println(F(host));
+  display.display();
+}
+
+void sendHTTPSensorData() {
+  //if disconnected loop until reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting connection...");
+    if (client.connect(host,80)) {
+      Serial.println("connected");
+    } else {
+      Serial.println(" try again in 500 ms");
+      delay(500); //wait 5ms before trying again
+    }
+  }
+  client.println("GET /"+sensorData+" HTTP/1.1\n\r");
+  client.println("Host: "+String(host)); 
+  delay(500);             
+  client.println("connection closed"); 
+  client.stop();                             //stop client
+}
+
+void structureSensorData() {
+  Serial.println("Structuring data request");
+  sensorData  = "sensor?Sensor="+String(SensorNumber);
+  sensorData += "&temp="+String(temp);
+  sensorData += "&sound="+String(sound);
+  sensorData += "&light="+String(rgbc[0]) + "," + String(rgbc[1]) + "," + String(rgbc[2]) + "," +  String(rgbc[3]);
+
+  Serial.println("...Information to be posted: "+sensorData);
 }
 
 void resetDisplay(int cursor) {
