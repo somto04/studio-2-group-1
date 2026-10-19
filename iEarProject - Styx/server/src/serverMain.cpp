@@ -13,11 +13,11 @@
 const char* ssid_ap = "Team_X";
 const char* password_ap = "123456789";
 
-IPAddress local_ip(192,168,4,1); // arbitrary IP address (user-defined IP address). 
+IPAddress local_ip(192,168,4,169); // arbitrary IP address (user-defined IP address). 
                                  // You can change last digit so that it's not the same 
                                  // as other teams, 192,168,4,5; 192,168,4,7; 192,168,4,17; etc. )
 
-IPAddress gateway(192,168,4,1);  // same as local_ip
+IPAddress gateway(192,168,4,169);  // same as local_ip
 IPAddress subnet(255,255,255,0); // keep unchanged
 
 //create a WebServer object on port 80
