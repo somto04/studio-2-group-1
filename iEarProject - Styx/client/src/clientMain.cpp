@@ -231,7 +231,7 @@ void display3DGyroValues()
     gyroZ = gyroData.zData - gOffZ;
 
     // if there is a substantial different not just a bump
-    if (abs(gyroX - prevGyroX) > 70 || abs(gyroY - prevGyroY) > 70 || abs(gyroZ - prevGyroZ) > 70) objectMoved = true;
+    if (abs(gyroX - prevGyroX) > 100 || abs(gyroY - prevGyroY) > 100 || abs(gyroZ - prevGyroZ) > 100) objectMoved = true;
 
     Serial.print("GyroX: ");
     Serial.print(gyroX);
@@ -430,11 +430,13 @@ void connectToServer(){
 }
 
 std::string getTimeString() {
-    std::time_t now = std::time(nullptr);
-    std::tm* localTime = std::localtime(&now);
-    char buffer[80];
-    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", localTime);
-    return std::string(buffer);
+  time_t tt = time(nullptr);
+  tm* ti = localtime(&tt);
+
+  char buffer[9];
+  strftime(buffer, sizeof(buffer), "%H:%M:%S", ti);
+
+  return std::string(buffer);
 }
 
 void sendHTTPSensorData() {
@@ -448,10 +450,14 @@ void sendHTTPSensorData() {
       delay(500); //wait 5ms before trying again
     }
   }
-  client.println("GET /"+sensorData+" HTTP/1.1\n\r");
-  client.println("Host: "+String(host)); 
-  delay(500);             
-  client.println("connection closed"); 
+  client.print("GET /");
+  client.print(sensorData);
+  client.println(" HTTP/1.1");
+  client.print("Host: ");
+  client.println(host);
+  client.println("Connection: close");
+  client.println();
+  delay(500);
   client.stop();                             //stop client
 }
 

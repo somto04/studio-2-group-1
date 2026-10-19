@@ -36,17 +36,17 @@ void setup(){
   WiFi.mode(WIFI_AP);
   delay(10);
   WiFi.softAPConfig(local_ip, gateway, subnet);
-  WiFi.softAP(ssid_ap, password_ap);
-  IPAddress myIP = WiFi.softAPIP();
- 
-  while (WiFi.status() != WL_CONNECTED) { // Wait for connection
-    delay(500);
-    Serial.println("Waiting for WiFi connection ...");
+  if (!WiFi.softAP(ssid_ap, password_ap)) {
+    Serial.println("Failed to start WiFi access point");
+    while (true) {
+      delay(1000);
+    }
   }
 
-  Serial.println("\nConnected to "+WiFi.SSID()); // Report which SSID has been used
-  Serial.print("IP address:\t");             
-  Serial.println(WiFi.localIP());            // And the IP address being used, although http://ServerLogicalName.local will access the device
+  Serial.print("WiFi access point started: ");
+  Serial.println(ssid_ap);
+  Serial.print("IP address:\t");
+  Serial.println(WiFi.softAPIP());
   Serial.println("");
   
   
