@@ -13,6 +13,7 @@
 #include "SparkFun_LSM6DSV16X.h" //inertial sensor library not available in PlatformIO libraries.
 #include <ctime>
 #include <string>
+#include <WiFiNTP.h>
 
 //define PDM mic parameters
 #define BIT_PER_SAMPLE 16
@@ -61,7 +62,7 @@ WiFiClient client;
 String sensorData;                     //variable to hold sensor data for posting
 float  temp, sound;
 unsigned short rgbc[4];
-bool objectMoved;
+bool objectAccessed;
 
 #define SensorNumber 1                 //enables you to identify devices uniquely
 
@@ -96,7 +97,8 @@ void resetDisplay(int);
 void initialiseSensors();
 void calibrateGyro();
 void display3DGyroValues();
-std::string getTimeString();
+void syncClock();
+String getTimeString();
 
 void setup() {
     Serial.begin(115200);
@@ -118,6 +120,7 @@ void setup() {
     display.clearDisplay();
     connectToServer();
     initialiseSensors();
+    syncClock();
 }
 
 void loop() {
@@ -131,6 +134,17 @@ void loop() {
     
     display3DGyroValues(); 
     display.display();  
+}
+
+void syncClock() { // for getting accurate time 
+  NTP.begin("pool.ntp.org", "time.nist.gov");
+  if (!NTP.waitSet(15000)) {
+      Serial.println("NTP time sync failed");
+  }
+
+  // UK time, including daylight saving time
+  setenv("TZ", "GMT0BST,M3.5.0/1,M10.5.0/2", 1);
+  tzset();
 }
 
 void initialiseSensors() {
@@ -224,14 +238,14 @@ void display3DGyroValues()
 {
   if (myLSM.checkStatus())
   {
-    objectMoved = false;
+    objectAccessed = false;
     myLSM.getGyro(&gyroData);
     gyroX = gyroData.xData - gOffX;
     gyroY = gyroData.yData - gOffY;
     gyroZ = gyroData.zData - gOffZ;
 
     // if there is a substantial different not just a bump
-    if (abs(gyroX - prevGyroX) > 100 || abs(gyroY - prevGyroY) > 100 || abs(gyroZ - prevGyroZ) > 100) objectMoved = true;
+    if (abs(gyroX - prevGyroX) > 300 || abs(gyroY - prevGyroY) > 300 || abs(gyroZ - prevGyroZ) > 300) objectAccessed = true;
 
     Serial.print("GyroX: ");
     Serial.print(gyroX);
@@ -429,14 +443,14 @@ void connectToServer(){
   display.display();
 }
 
-std::string getTimeString() {
-  time_t tt = time(nullptr);
-  tm* ti = localtime(&tt);
+String getTimeString() {
+  time_t currentTime = time(NULL);
+  struct tm *timeInfo = localtime(&currentTime);
 
-  char buffer[9];
-  strftime(buffer, sizeof(buffer), "%H:%M:%S", ti);
+  char timeString[9];
+  strftime(timeString, sizeof(timeString), "%H:%M:%S", timeInfo);
 
-  return std::string(buffer);
+  return String(timeString);
 }
 
 void sendHTTPSensorData() {
@@ -467,8 +481,8 @@ void structureSensorData() {
   sensorData += "&temp=" + String(temp);
   sensorData += "&sound=" + String(sound);
   sensorData += "&light=" + String(rgbc[0]) + "," + String(rgbc[1]) + "," + String(rgbc[2]) + "," +  String(rgbc[3]);
-  sensorData += "&moved=" + String(objectMoved);
-  sensorData += "&time=" + String(getTimeString().c_str()); // Convert std::string to Arduino String
+  sensorData += "&accessed=" + String(objectAccessed);
+  sensorData += "&time=" + getTimeString();
 
   Serial.println("...Information to be posted: "+sensorData);
 }
