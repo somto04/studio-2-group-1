@@ -7,6 +7,8 @@
 #include "LEAmDNS.h"
 #include <W5100lwIP.h>   
 #include <lwip/dhcp.h> 
+#include <iostream>
+#include <string>
 
 //configure parameters for Access Point
 
@@ -81,20 +83,23 @@ void handleHourlyReport(String sensorLine) {
   int timePosition = sensorLine.indexOf("time");
 
   String thisTime = sensorLine.substring(timePosition + 5);
+  String hour = sensorLine.substring(timePosition + 5, timePosition + 7);
+  
   if (thisTime.endsWith(":00:00")) {
-
+    int intHour = hour.toInt();
+    houryHistory[hour][0] = 
   }
 }
 
 //Server request handler
 void handleSensors() { 
   //webpage = "";
-  Serial.print("Received from: ");
+  //Serial.print("Received from: ");
   for (int i = 0; i < server.args(); i++) {
     String sensorLine = server.argName(i)+" "+server.arg(i)+" ";
-    Serial.print(sensorLine);
+    //Serial.print(sensorLine);
     handleHourlyReport(sensorLine);
-    Serial.println(" ");
+    //Serial.println(" ");
   }
-  Serial.println();
+  //Serial.println();
 }
