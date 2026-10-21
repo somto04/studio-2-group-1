@@ -25,14 +25,14 @@ IPAddress subnet(255,255,255,0); // keep unchanged
 //create a WebServer object on port 80
 WebServer server(80);
 
-String houryHistory[24][4];
+String hourlyHistory[24][4];
 
 //function declarations
 void handleRoot();
 void handleNotFound();
 bool ReceivedAnySensor();
 void handleSensors();
-void handleHourlyReport(String sensorLine);
+void handleHourlyReport();
 
 void setup(){
   Serial.begin(115200); // Serial port for debugging purposes
@@ -79,27 +79,27 @@ void handleNotFound(){
   server.send(404, "text/plain", "404: Not found"); //send HTTP status 404 (Not Found) when there's no handler for the URI in the request
 }
 
-void handleHourlyReport(String sensorLine) {
-  int timePosition = sensorLine.indexOf("time");
+void handleHourlyReport() {
+  String thisTime = server.arg("time");
+  int hour = thisTime.substring(0,2).toInt();
 
-  String thisTime = sensorLine.substring(timePosition + 5);
-  String hour = sensorLine.substring(timePosition + 5, timePosition + 7);
-  
-  if (thisTime.endsWith(":00:00")) {
-    int intHour = hour.toInt();
-    houryHistory[hour][0] = 
+  if (thisTime.substring(3,5) == "00" && thisTime.substring(6,8) == "00") {
+
+    hourlyHistory[hour][0] = server.arg("temp");
+    hourlyHistory[hour][1] = server.arg("sound");
+    hourlyHistory[hour][2] = server.arg("light");
+    hourlyHistory[hour][3] = server.arg("accessed");
   }
 }
 
 //Server request handler
 void handleSensors() { 
   //webpage = "";
-  //Serial.print("Received from: ");
+  Serial.print("Received from: ");
   for (int i = 0; i < server.args(); i++) {
-    String sensorLine = server.argName(i)+" "+server.arg(i)+" ";
-    //Serial.print(sensorLine);
-    handleHourlyReport(sensorLine);
-    //Serial.println(" ");
+    Serial.print(server.argName(i)+" "+server.arg(i)+" ") ;
+    handleHourlyReport();
+    Serial.println(" ");
   }
-  //Serial.println();
+  Serial.println();
 }
