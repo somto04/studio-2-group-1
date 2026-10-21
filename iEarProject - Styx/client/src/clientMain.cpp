@@ -481,7 +481,7 @@ void sendHTTPSensorData() {
 void structureSensorData() {
   Serial.println("Structuring data request");
   sensorData  = "sensor?Sensor=" + String(SensorNumber);
-  sensorData += "zone?Zone=" + String(ZoneNumber);
+  sensorData += "&zone=" + String(ZoneNumber);
   sensorData += "&temp=" + String(temp);
   sensorData += "&sound=" + String(sound);
   sensorData += "&light=" + String(rgbc[0]) + "," + String(rgbc[1]) + "," + String(rgbc[2]) + "," +  String(rgbc[3]);
