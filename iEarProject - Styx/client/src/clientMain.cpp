@@ -65,6 +65,7 @@ unsigned short rgbc[4];
 bool objectAccessed;
 
 #define SensorNumber 1                 //enables you to identify devices uniquely
+#define ZoneNumber 1
 
 //initialize gyroscope values
 float gyroX = 0.0;
@@ -433,6 +434,8 @@ void connectToServer(){
   display.setCursor(0,5);
   display.print("Sensor No: ");
   display.println(String(SensorNumber));
+  display.print("Zone No: ");
+  display.println(String(ZoneNumber));
   display.setCursor(0,15);
 
   display.setCursor(0,35);
@@ -477,7 +480,8 @@ void sendHTTPSensorData() {
 
 void structureSensorData() {
   Serial.println("Structuring data request");
-  sensorData  = "sensor?Sensor="+String(SensorNumber);
+  sensorData  = "sensor?Sensor=" + String(SensorNumber);
+  sensorData += "zone?Zone=" + String(ZoneNumber);
   sensorData += "&temp=" + String(temp);
   sensorData += "&sound=" + String(sound);
   sensorData += "&light=" + String(rgbc[0]) + "," + String(rgbc[1]) + "," + String(rgbc[2]) + "," +  String(rgbc[3]);
