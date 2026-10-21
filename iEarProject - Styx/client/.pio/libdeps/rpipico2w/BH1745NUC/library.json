@@ -1,0 +1,13 @@
+{
+    "name": "BH1745NUC",
+    "description": "Arduino library for BH1745NUC ambient light sensor over I2C",
+    "keywords": "BH1745, BH1745NUC, ambient, light, color, sensor, RGB",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Kriechi/bh1745nuc-ambient-light-sensor-arduino.git"
+    },
+    "version": "1.0.0",
+    "license": "MIT",
+    "frameworks": "arduino",
+    "platforms": "*"
+}
